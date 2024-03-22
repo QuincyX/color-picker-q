@@ -1,25 +1,17 @@
 <template lang="pug">
+.colorPreview(:style="{backgroundColor:color}") {{ color }}
 .colorPickerContainer(:style="computedStyle")
-  .hslContainer(@click="mode = 'hsl'")
-    hsl_h.panel
-    hsl_s.panel
-    hsl_l.panel
-    hsl_a.panel
-  .hsvContainer(@click="mode = 'hsv'")
-    div
-      hsv_sv.panel
-      hsv_h.panel
-    hsv_a.panel
-  .rgbContainer(@click="mode = 'rgb'")
-    .rgbPanel
-      rgb_r.panel
-      rgb_g.panel
-      rgb_b.panel
-    rgb_a.panel
+  comHsl(@click="mode = 'hsl'")
+  comHsv(@click="mode = 'hsv'")
+  comRgb(@click="mode = 'rgb'")
+  comCmyk(@click="mode = 'cmyk'")
+
 .resultContainer
   .result {{ color_hsl}}
   .result {{ color_rgb }}
+  .result {{ color_rgb_percent }}
   .result {{ color_hsv }}
+  .result {{ color_cmyk }}
 .resultContainer
   .result mode: {{ mode }}
   .result {{ color_hex }}
@@ -54,6 +46,19 @@
   .inputItem
     .label rgb.b
     input(v-model="rgb.b" type="number")
+.form
+  .inputItem
+    .label cmyk.c
+    input(v-model="cmyk.c" type="number")
+  .inputItem
+    .label cmyk.m
+    input(v-model="cmyk.m" type="number")
+  .inputItem
+    .label cmyk.y
+    input(v-model="cmyk.y" type="number")
+  .inputItem
+    .label cmyk.k
+    input(v-model="cmyk.k" type="number")
   
 .form
   .inputItem
@@ -67,17 +72,11 @@ import type { Ref } from 'vue'
 import tinycolor from 'tinycolor2'
 
 import { ColorInjectionKey } from './constant'
-import hsv_h from './__panel__/hsv_h.vue'
-import hsv_sv from './__panel__/hsv_sv.vue'
-import hsv_a from './__panel__/hsv_a.vue'
-import hsl_h from './__panel__/hsl_h.vue'
-import hsl_s from './__panel__/hsl_s.vue'
-import hsl_l from './__panel__/hsl_l.vue'
-import hsl_a from './__panel__/hsl_a.vue'
-import rgb_r from './__panel__/rgb_r.vue'
-import rgb_g from './__panel__/rgb_g.vue'
-import rgb_b from './__panel__/rgb_b.vue'
-import rgb_a from './__panel__/rgb_a.vue'
+
+import comHsl from './hsl/index.vue'
+import comHsv from './hsv/index.vue'
+import comRgb from './rgb/index.vue'
+import comCmyk from './cmyk/index.vue'
 
 const props = defineProps({
   modelValue: {
@@ -113,6 +112,12 @@ const rgb = ref({
   g: 255,
   b: 255
 })
+const cmyk = ref({
+  c: 0,
+  m: 0,
+  y: 0,
+  k: 0
+})
 
 const color_hsl = computed(() => {
   return tinycolor({
@@ -130,6 +135,14 @@ const color_rgb = computed(() => {
     a: alpha.value
   }).toRgbString()
 })
+const color_rgb_percent = computed(() => {
+  return tinycolor({
+    r: rgb.value.r,
+    g: rgb.value.g,
+    b: rgb.value.b,
+    a: alpha.value
+  }).toPercentageRgbString()
+})
 const color_hsv = computed(() => {
   return tinycolor({
     h: hsv.value.h,
@@ -138,11 +151,22 @@ const color_hsv = computed(() => {
     a: alpha.value
   }).toHsvString()
 })
+const color_cmyk = computed(() => {
+  return tinycolor({
+    r: (1 - cmyk.value.c) * (1 - cmyk.value.k) * 255,
+    g: (1 - cmyk.value.m) * (1 - cmyk.value.k) * 255,
+    b: (1 - cmyk.value.y) * (1 - cmyk.value.k) * 255,
+    a: alpha.value
+  }).toRgbString()
+})
+
 const color = computed(() => {
   if (mode.value === 'hsv') {
     return color_hsv.value
   } else if (mode.value === 'hsl') {
     return color_hsl.value
+  } else if (mode.value === 'cmyk') {
+    return color_cmyk.value
   } else {
     return color_rgb.value
   }
@@ -177,6 +201,7 @@ provide(ColorInjectionKey, {
   hsl,
   hsv,
   rgb,
+  cmyk,
   alpha,
   config
 })
@@ -216,6 +241,10 @@ watch(
       rgb.value.r = c.toRgb().r
       rgb.value.g = c.toRgb().g
       rgb.value.b = c.toRgb().b
+      cmyk.value.c = 1 - c.toRgb().r / 255
+      cmyk.value.m = 1 - c.toRgb().g / 255
+      cmyk.value.y = 1 - c.toRgb().b / 255
+      cmyk.value.k = 1 - Math.max(cmyk.value.c, cmyk.value.m, cmyk.value.y)
     } else if (mode.value === 'hsv') {
       const c = tinycolor({
         h: hsv.value.h,
@@ -223,6 +252,26 @@ watch(
         v: hsv.value.v / 100,
         a: alpha.value
       })
+      hsl.value.h = c.toHsl().h
+      hsl.value.s = c.toHsl().s * 100
+      hsl.value.l = c.toHsl().l * 100
+      rgb.value.r = c.toRgb().r
+      rgb.value.g = c.toRgb().g
+      rgb.value.b = c.toRgb().b
+      cmyk.value.c = 1 - c.toRgb().r / 255
+      cmyk.value.m = 1 - c.toRgb().g / 255
+      cmyk.value.y = 1 - c.toRgb().b / 255
+      cmyk.value.k = 1 - Math.max(cmyk.value.c, cmyk.value.m, cmyk.value.y)
+    } else if (mode.value === 'cmyk') {
+      const c = tinycolor({
+        r: (1 - cmyk.value.c) * (1 - cmyk.value.k) * 255,
+        g: (1 - cmyk.value.m) * (1 - cmyk.value.k) * 255,
+        b: (1 - cmyk.value.y) * (1 - cmyk.value.k) * 255,
+        a: alpha.value
+      })
+      hsv.value.h = c.toHsv().h
+      hsv.value.s = c.toHsv().s * 100
+      hsv.value.v = c.toHsv().v * 100
       hsl.value.h = c.toHsl().h
       hsl.value.s = c.toHsl().s * 100
       hsl.value.l = c.toHsl().l * 100
@@ -242,6 +291,10 @@ watch(
       hsv.value.h = c.toHsv().h
       hsv.value.s = c.toHsv().s * 100
       hsv.value.v = c.toHsv().v * 100
+      cmyk.value.c = 1 - c.toRgb().r / 255
+      cmyk.value.m = 1 - c.toRgb().g / 255
+      cmyk.value.y = 1 - c.toRgb().b / 255
+      cmyk.value.k = 1 - Math.max(cmyk.value.c, cmyk.value.m, cmyk.value.y)
     }
   }
 )
@@ -257,27 +310,7 @@ watch(
   --pointerSize: 30px;
   --thumbSize: 4px;
 }
-.hslContainer {
-  display: flex;
-  flex-wrap: wrap;
-}
-.hsvContainer {
-  display: flex;
-  flex-wrap: wrap;
-}
-.rgbContainer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  --linerWidth: 40px;
-  .rgbPanel {
-    display: flex;
-    flex-wrap: wrap;
-    flex-direction: column;
-    justify-content: space-around;
-    padding: 10px 0;
-  }
-}
+
 .panelContainer {
   display: inline-block;
   padding: 10px;
@@ -311,5 +344,14 @@ watch(
 }
 .result {
   padding: 10px 20px;
+}
+.colorPreview {
+  width: 120px;
+  height: 50px;
+  border-radius: 5px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
